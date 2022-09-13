@@ -164,9 +164,26 @@ static bool throughput_address_compare(uint8_t *address1, uint8_t *address2);
  *****************************************************************************/
 void timer_on_refresh_rssi(void)
 {
+  static uint8_t toggle=false;
   sl_status_t sc;
+  unsigned char channel_map[5];
+  size_t map_size;
   if (connection_handle != 0xFF  && central_state.state != THROUGHPUT_STATE_TEST) {
+    if (toggle == false) {
+      toggle = true;
     sc = sl_bt_connection_get_rssi(connection_handle);
+    app_assert_status(sc);
+  } else {
+    toggle = false;
+    sc = sl_bt_connection_read_channel_map(connection_handle,
+                                            sizeof(channel_map),
+                                             &map_size,
+                                            channel_map);
+    app_assert_status(sc);
+    app_log_info("Channel Map: 0x%x[4] 0x%x[3] 0x%x[2] 0x%x[1] 0x%x[0]" \
+            APP_LOG_NL,channel_map[4],channel_map[3],channel_map[2],
+            channel_map[1],channel_map[0]);
+  }
     app_assert_status(sc);
   }
 }
@@ -215,7 +232,8 @@ void bt_on_event_central(sl_bt_msg_t *evt)
       // Set remote connection power reporting - needed for Power Control
       sc = sl_bt_connection_set_remote_power_reporting(connection_handle,
                                                        power_control_enabled);
-      app_assert_status(sc);
+      app_log_warning("remote power reporting enable, status 0x%x" APP_LOG_NEW_LINE, sc);
+      //app_assert_status(sc);
 
       central_state.state = THROUGHPUT_STATE_CONNECTED;
       throughput_central_on_state_change(central_state.state);
