@@ -51,10 +51,10 @@
 #include "ncp_host.h"
 
 // Optstring argument for getopt.
-#define OPTSTRING NCP_HOST_OPTSTRING APP_LOG_OPTSTRING "T:D:p:i:M:N:c:o:h"
+#define OPTSTRING NCP_HOST_OPTSTRING APP_LOG_OPTSTRING "T:D:p:i:M:N:c:o:hP:"
 
 // Usage info.
-#define USAGE APP_LOG_NL "%s " NCP_HOST_USAGE APP_LOG_USAGE " [-T <time> | -D <data_length>] [-p <phy>] [-i <interval>] [-M <mtu>] [-N <type>] [-c <config>] [-o <log>] [-h]" APP_LOG_NL
+#define USAGE APP_LOG_NL "%s " NCP_HOST_USAGE APP_LOG_USAGE " [-T <time> | -D <data_length>] [-p <phy>] [-i <interval>] [-M <mtu>] [-N <type>] [-c <config>] [-o <log>] [-h] [-P <power>]" APP_LOG_NL
 
 // Options info.
 #define OPTIONS                                                                            \
@@ -77,7 +77,9 @@
   "        <config>         Path to the configuration file\n"                              \
   "    -o  Log file.\n"                                                                    \
   "        <log>            Path to the log file\n"                                        \
-  "    -h  Print this help message.\n"
+  "    -P  RF output power level\n"                                                        \
+  "        <power>            RF output power level in dBm\n"                               \
+  "    -h  Print this help message.\n"                                                      \
 
 #define MAX_LOG_LINE_LEN              1024
 #define LOG_INTERVAL                  60.0
@@ -99,6 +101,7 @@ typedef struct {
   sl_bt_gatt_client_config_flag_t test_type;
   throughput_mode_t mode;
   uint32_t fixed_amount;
+  throughput_tx_power_t tx_power;
 } test_parameters_t;
 
 static sl_status_t open_log_file(char *filename);
@@ -112,7 +115,8 @@ static test_parameters_t test_parameters = {
   .mtu_size = THROUGHPUT_CENTRAL_MTU_SIZE,
   .test_type = THROUGHPUT_CENTRAL_TEST_TYPE,
   .mode = THROUGHPUT_CENTRAL_MODE_DEFAULT,
-  .fixed_amount = THROUGHPUT_CENTRAL_FIXED_TIME
+  .fixed_amount = THROUGHPUT_CENTRAL_FIXED_TIME,
+  .tx_power = THROUGHPUT_CENTRAL_TX_POWER
 };
 
 static int logfile_descriptor = -1;
@@ -248,6 +252,14 @@ void app_init(int argc, char *argv[])
         exit(EXIT_SUCCESS);
         break;
 
+      // tx_power
+      case 'P':
+        test_parameters.tx_power = (throughput_tx_power_t) atoi(optarg);
+        app_log("tx power set to %d" APP_LOG_NL, test_parameters.tx_power);
+        //TODO: validate
+
+        break;
+
       // Process options for other modules.
       default:
         sc = ncp_host_set_option((char)opt, optarg);
@@ -326,6 +338,8 @@ void sl_bt_on_event(sl_bt_msg_t *evt)
       sc = throughput_central_set_mtu_size(test_parameters.mtu_size);
       app_assert_status(sc);
       sc = throughput_central_set_type(test_parameters.test_type);
+      app_assert_status(sc);
+      sc = throughput_central_set_tx_power(test_parameters.tx_power, 0, 0);
       app_assert_status(sc);
       break;
 
